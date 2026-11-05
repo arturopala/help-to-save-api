@@ -1,0 +1,850 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "help-to-save-api",
+    "version": "2.0",
+    "description": "Microservice behind the HMRC API Platform `individuals/help-to-save` API (version 2.0). Lets third-party applications check Help to Save eligibility, create accounts and read account details on behalf of a Government Gateway user (user-restricted) or as a privileged application. Paths below are as served by the microservice; on the API Platform they are prefixed with `/individuals/help-to-save`. Derived from conf/*.routes, controllers, services, validators and models of this repository."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7004",
+      "description": "Local (sbt run)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Eligibility",
+      "description": "Check whether a person can open a Help to Save account."
+    },
+    {
+      "name": "Accounts",
+      "description": "Create a Help to Save account and read account details."
+    },
+    {
+      "name": "API Platform",
+      "description": "API definition and specification documents read by the HMRC API Platform."
+    },
+    {
+      "name": "Platform",
+      "description": "Health check and static assets provided by the framework."
+    }
+  ],
+  "paths": {
+    "/eligibility": {
+      "get": {
+        "tags": [
+          "Eligibility"
+        ],
+        "summary": "Check eligibility of the signed-in user (NINO from auth)",
+        "operationId": "checkEligibilityDeriveNino",
+        "parameters": [
+          {
+            "name": "Gov-Client-User-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Client-Timezone",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Version",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Instance-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-downstream": {
+          "service": "help-to-save",
+          "method": "GET",
+          "path": "/help-to-save/eligibility-check?nino={nino}"
+        },
+        "description": "Proxied to **help-to-save** as `GET /help-to-save/eligibility-check?nino={nino}`.\n\nAuth: Government Gateway only (privileged \u2192 403); NINO from auth.\n\nFirst calls `GET /help-to-save/enrolment-status?nino=`; if the user is already enrolled returns `{\"accountExists\":true}` without an eligibility check (result not cached). Otherwise the eligibility result is cached for 1 hour under the generated correlation id. Every response produced after authentication carries an `X-Correlation-ID` header, which must be sent as `header.requestCorrelationId` in a later create-account request.\n\nRequest headers used: `Authorization`, `Accept`, `Gov-Client-User-ID`, `Gov-Client-Timezone`, `Gov-Vendor-Version`, `Gov-Vendor-Instance-ID`.",
+        "responses": {
+          "200": {
+            "description": "Eligibility result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EligibilityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/eligibility/{nino}": {
+      "get": {
+        "tags": [
+          "Eligibility"
+        ],
+        "summary": "Check eligibility for a given NINO",
+        "operationId": "checkEligibility",
+        "parameters": [
+          {
+            "name": "nino",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "National Insurance number. Must match the local NINO regex (suffix optional), checked after the enrolment-status call."
+          },
+          {
+            "name": "Gov-Client-User-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Client-Timezone",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Version",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Instance-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-downstream": {
+          "service": "help-to-save",
+          "method": "GET",
+          "path": "/help-to-save/eligibility-check?nino={nino}"
+        },
+        "description": "Proxied to **help-to-save** as `GET /help-to-save/eligibility-check?nino={nino}`.\n\nAuth: Government Gateway (path NINO must equal auth NINO) or Privileged Application (any NINO).\n\nSame flow as `GET /eligibility`, but the NINO comes from the path. Returns `X-Correlation-ID`.\n\nRequest headers used: `Authorization`, `Accept`, `Gov-Client-User-ID`, `Gov-Client-Timezone`, `Gov-Vendor-Version`, `Gov-Vendor-Instance-ID`.",
+        "responses": {
+          "200": {
+            "description": "Eligibility result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EligibilityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/account": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Create a Help to Save account",
+        "operationId": "createAccount",
+        "parameters": [
+          {
+            "name": "Gov-Client-User-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Client-Timezone",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Version",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Instance-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-downstream": {
+          "service": "help-to-save",
+          "method": "POST",
+          "path": "/help-to-save/create-account"
+        },
+        "description": "Proxied to **help-to-save** as `POST /help-to-save/create-account`.\n\nAuth: Government Gateway with confidence level \u2265 200 (NINO bound to auth) or Privileged Application.\n\nChecks the cached eligibility for `header.requestCorrelationId` (must exist, belong to the same NINO and be eligible) and, if bank details are supplied, validates them via `POST /help-to-save/validate-bank-details` (in parallel). If communicationPreference is 02 the email is first stored via `GET /help-to-save/store-email`. If the cached result says an account already exists, returns 409 without calling the back end.\n\nRequest headers used: `Authorization`, `Accept`, `Content-Type`, `Gov-Client-User-ID`, `Gov-Client-Timezone`, `Gov-Vendor-Version`, `Gov-Vendor-Instance-ID`.",
+        "requestBody": {
+          "required": true,
+          "description": "Create-account request (header + body). Read with `request.body.asJson`; a non-JSON body gives 400 NO_JSON.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created (empty body)."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "description": "No active session (empty body), or `Insufficient confidence level` (text/plain) for Government Gateway users below L200."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "description": "Account already existed (empty body)."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Get the signed-in user's account details",
+        "operationId": "getAccount",
+        "parameters": [
+          {
+            "name": "Gov-Client-User-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Client-Timezone",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Version",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Gov-Vendor-Instance-ID",
+            "in": "header",
+            "required": false,
+            "description": "Fraud-prevention header; presence only is checked.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-downstream": {
+          "service": "help-to-save",
+          "method": "GET",
+          "path": "/help-to-save/{nino}/account?systemId=MDTP-API-client&correlationId={uuid}"
+        },
+        "description": "Proxied to **help-to-save** as `GET /help-to-save/{nino}/account?systemId=MDTP-API-client&correlationId={uuid}`.\n\nAuth: Any supported provider; NINO must be present in auth (else 403).\n\nRequest headers used: `Authorization`, `Accept`, `Gov-Client-User-ID`, `Gov-Client-Timezone`, `Gov-Vendor-Version`, `Gov-Vendor-Instance-ID`.",
+        "responses": {
+          "200": {
+            "description": "Account details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "No account (back end returned 404). Empty body."
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/definition": {
+      "get": {
+        "tags": [
+          "API Platform"
+        ],
+        "summary": "API Platform definition (context, version 2.0, access type, enabled flag)",
+        "operationId": "definition",
+        "description": "Unauthenticated. Access type and enabled flag come from `api.access.version-2.0.type` / `.enabled`.",
+        "responses": {
+          "200": {
+            "description": "API definition JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conf/{version}/{file}": {
+      "get": {
+        "tags": [
+          "API Platform"
+        ],
+        "summary": "Serve API specification files (e.g. 2.0/application.yaml)",
+        "operationId": "yaml",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "API version folder, e.g. 2.0"
+          },
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "allowReserved": true,
+            "description": "File path below the version folder, e.g. application.yaml"
+          }
+        ],
+        "description": "Unauthenticated, CORS-enabled. Served from classpath `/public/api/conf/{version}`.",
+        "responses": {
+          "200": {
+            "description": "File contents."
+          },
+          "404": {
+            "description": "File not found."
+          }
+        }
+      }
+    },
+    "/assets/{file}": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Static assets from /public (Play Assets controller)",
+        "operationId": "assetsVersioned",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "allowReserved": true,
+            "description": "Asset path below /public"
+          }
+        ],
+        "description": "Unauthenticated. The only content under /public is the API specification.",
+        "responses": {
+          "200": {
+            "description": "Asset contents."
+          },
+          "404": {
+            "description": "Not found."
+          }
+        }
+      }
+    },
+    "/ping/ping": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Health check (bootstrap health.Routes)",
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Service is up."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer token issued by the API Platform; validated by the auth service with providers GovernmentGateway or PrivilegedApplication."
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "VALIDATION_ERROR, NO_JSON, ACCESS_ERROR, UNSUPPORTED_CREDENTIALS_PROVIDER, SERVER_ERROR or MISSING_DATA."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "FrameworkError": {
+        "type": "object",
+        "description": "Body produced by the bootstrap JsonErrorHandler (body-parser failures, uncaught exceptions).",
+        "properties": {
+          "statusCode": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Eligibility": {
+        "type": "object",
+        "required": [
+          "isEligible",
+          "hasWTC",
+          "hasUC"
+        ],
+        "properties": {
+          "isEligible": {
+            "type": "boolean"
+          },
+          "hasWTC": {
+            "type": "boolean",
+            "description": "In receipt of Working Tax Credit."
+          },
+          "hasUC": {
+            "type": "boolean",
+            "description": "In receipt of Universal Credit."
+          }
+        }
+      },
+      "EligibilityResponse": {
+        "type": "object",
+        "required": [
+          "accountExists"
+        ],
+        "description": "Either `{\"eligibility\": {...}, \"accountExists\": false}` or `{\"accountExists\": true}` (no eligibility object).",
+        "properties": {
+          "eligibility": {
+            "$ref": "#/components/schemas/Eligibility"
+          },
+          "accountExists": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BonusTerm": {
+        "type": "object",
+        "required": [
+          "startDate",
+          "endDate",
+          "bonusEstimate"
+        ],
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "pattern": "^[0-9]{8}$",
+            "description": "yyyyMMdd"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^[0-9]{8}$",
+            "description": "yyyyMMdd"
+          },
+          "bonusEstimate": {
+            "type": "number"
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "required": [
+          "accountNumber",
+          "headroom",
+          "closed",
+          "blockedFromPayment",
+          "balance",
+          "bonusTerms"
+        ],
+        "properties": {
+          "accountNumber": {
+            "type": "string"
+          },
+          "headroom": {
+            "type": "number",
+            "description": "Amount that can still be paid in this month (upstream `canPayInThisMonth`)."
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "blockedFromPayment": {
+            "type": "boolean",
+            "description": "Always false (hard-coded)."
+          },
+          "balance": {
+            "type": "number"
+          },
+          "bonusTerms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BonusTerm"
+            }
+          },
+          "nbaAccountNumber": {
+            "type": "string",
+            "description": "Nominated bank account number."
+          },
+          "nbaPayee": {
+            "type": "string"
+          },
+          "nbaRollNumber": {
+            "type": "string"
+          },
+          "nbaSortCode": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAccountHeader": {
+        "type": "object",
+        "required": [
+          "version",
+          "createdTimestamp",
+          "clientCode",
+          "requestCorrelationId"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^(\\d\\.)+\\d+$",
+            "maxLength": 10
+          },
+          "createdTimestamp": {
+            "type": "string",
+            "description": "Pattern `yyyy-MM-dd HH:mm:ss z`, e.g. `2026-01-31 12:00:00 GMT`."
+          },
+          "clientCode": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9_-]+[A-Z0-9]$",
+            "maxLength": 20
+          },
+          "requestCorrelationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The `X-Correlation-ID` returned by a successful eligibility check for the same NINO within the last hour."
+          }
+        }
+      },
+      "ContactDetails": {
+        "type": "object",
+        "description": "address1, address2, postcode and communicationPreference are required once any fill-in from auth has been applied.",
+        "properties": {
+          "address1": {
+            "type": "string"
+          },
+          "address2": {
+            "type": "string"
+          },
+          "address3": {
+            "type": "string"
+          },
+          "address4": {
+            "type": "string"
+          },
+          "address5": {
+            "type": "string"
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "communicationPreference": {
+            "type": "string",
+            "enum": [
+              "00",
+              "02"
+            ],
+            "description": "02 = email (email then required and validated); 00 = post."
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Must contain a digit, no letters; allowed specials ( ) - . + space."
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "BankDetails": {
+        "type": "object",
+        "required": [
+          "accountNumber",
+          "sortCode",
+          "accountName"
+        ],
+        "properties": {
+          "accountNumber": {
+            "type": "string"
+          },
+          "sortCode": {
+            "type": "string",
+            "description": "Separators (space, -, _, en/em dash, minus sign) are stripped before use."
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "rollNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAccountBody": {
+        "type": "object",
+        "required": [
+          "registrationChannel"
+        ],
+        "description": "For privileged access nino, forename, surname, dateOfBirth and contactDetails are all required. For user-restricted (Government Gateway) access, missing nino, forename, surname, dateOfBirth and address are filled in from the user's auth record; nino, if given, must equal the auth NINO.",
+        "properties": {
+          "nino": {
+            "type": "string"
+          },
+          "forename": {
+            "type": "string",
+            "description": "No digits, no apostrophe, no leading or consecutive special characters; allowed specials - & . ,"
+          },
+          "surname": {
+            "type": "string",
+            "description": "No digits, no leading/trailing or consecutive special characters; allowed specials - & . , '"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "pattern": "^[0-9]{8}$",
+            "description": "yyyyMMdd"
+          },
+          "contactDetails": {
+            "$ref": "#/components/schemas/ContactDetails"
+          },
+          "registrationChannel": {
+            "type": "string",
+            "enum": [
+              "online",
+              "callCentre"
+            ]
+          },
+          "bankDetails": {
+            "$ref": "#/components/schemas/BankDetails"
+          }
+        }
+      },
+      "CreateAccountRequest": {
+        "type": "object",
+        "required": [
+          "header",
+          "body"
+        ],
+        "properties": {
+          "header": {
+            "$ref": "#/components/schemas/CreateAccountHeader"
+          },
+          "body": {
+            "$ref": "#/components/schemas/CreateAccountBody"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Validation failure (`ApiError` with code VALIDATION_ERROR or NO_JSON). Malformed JSON is rejected by the body parser with a `FrameworkError` body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                {
+                  "$ref": "#/components/schemas/FrameworkError"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "No active session / missing or invalid bearer token (empty body)."
+      },
+      "Forbidden": {
+        "description": "Authorisation failure (empty body), unsupported credentials provider (`UNSUPPORTED_CREDENTIALS_PROVIDER`), or NINO mismatch / missing NINO (`ACCESS_ERROR` or empty body).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Back-end failure (`ApiError` SERVER_ERROR / MISSING_DATA), auth service internal error (empty body), or uncaught exception (`FrameworkError`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                {
+                  "$ref": "#/components/schemas/FrameworkError"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "Body larger than the Play body-parser limit (framework default, not overridden)."
+      }
+    }
+  }
+}
